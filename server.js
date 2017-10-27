@@ -41,6 +41,8 @@ crypto = require('crypto');
 
 const simpleParser = require('mailparser').simpleParser;
 
+nodemailer = require('nodemailer');
+
 server.on('request', (request, response) => {
 
     var now = new Date();
@@ -200,29 +202,42 @@ server.on('request', (request, response) => {
 
 			    var items_processed = 0;
 
-			    for (let i = 0, len = received_email_ids.length; i < len; ++i){
-
-				let source = fs.createReadStream('/efsemail/mail/vhosts/ecommunicate.ch/'+username+'/new/'+received_email_ids[i]);
+			    if (received_email_ids.length === 0 ) {
 				
-				simpleParser(source, (err,mail) => {
-				    
-				    json_array.push({'subject' : mail.headers.get('subject'), 'from' : mail.headers.get('from')['value'][0]['address'], 'date' : mail.headers.get('date') , 'is_read' : is_read_booleans[i], 'id' : received_email_ids[i]})
+				response.write(JSON.stringify(json_array));
+				
+				response.end();
+				
+			    }
 
-				    items_processed++;
+			    else {
+			    
 
-				    if (items_processed === len ) {
+				for (let i = 0, len = received_email_ids.length; i < len; ++i){
 				    
-					response.write(JSON.stringify(json_array));
+				    let source = fs.createReadStream('/efsemail/mail/vhosts/ecommunicate.ch/'+username+'/new/'+received_email_ids[i]);
+				    
+				    simpleParser(source, (err,mail) => {
 					
-					response.end();
-
-				    }
-
-
-				    //console.log(mail.text)
+					json_array.push({'subject' : mail.headers.get('subject'), 'from' : mail.headers.get('from')['value'][0]['address'], 'date' : mail.headers.get('date') , 'is_read' : is_read_booleans[i], 'id' : received_email_ids[i]})
+					
+					items_processed++;
+					
+					if (items_processed === len ) {
+					    
+					    response.write(JSON.stringify(json_array));
+					    
+					    response.end();
+					    
+					}
+					
+					
+					//console.log(mail.text)
+					
+				    });
 				    
-				});
-				
+				    
+				}
 
 			    }
 
@@ -278,6 +293,61 @@ server.on('request', (request, response) => {
 			
 		    });
 
+	    });
+
+    }
+
+    if (request.method === 'POST' && request.url === '/sendemail/') {
+	
+	let body = [];
+	request.on('data', (chunk) => {
+	        body.push(chunk);
+	    }).on('end', () => {
+		body = Buffer.concat(body).toString();
+		const auth_token = JSON.parse(decodeURIComponent(body))["auth_token"];
+		const email_body = JSON.parse(decodeURIComponent(body))["body"];
+		const email_subject = JSON.parse(decodeURIComponent(body))["subject"];
+		const email_to = JSON.parse(decodeURIComponent(body))["to"];
+		
+		admin.auth().verifyIdToken(auth_token)
+		    .then(function(decodedToken) {
+
+			var username = decodedToken.uid;
+			
+			console.log(email_body);
+			console.log(email_subject);
+			console.log(email_to);
+
+			let transporter = nodemailer.createTransport({
+			    host: 'ecommunicate.ch',
+			    port: 587,
+			    secure: false, // true for 465, false for other ports                                                                                                          
+			});
+			
+			// setup email data with unicode symbol                                                                                                                            
+			
+			let mailOptions = {
+			    from: username + "@ecommunicate.ch", // sender address                                                                                      
+			    to: email_to, // list of receivers                                                                                                              
+			    subject: email_subject, // Subject line                                                                                                                            
+			    text: email_body, // plain text body                                                                                                                       
+			};
+			
+			// send mail with defined transport objec                                                                                                                          
+			transporter.sendMail(mailOptions, (error, info) => {
+			    
+			    if (error) {
+				console.log(error);
+				return
+			    }
+			    console.log('Message sent: %s', info.messageId);
+			    
+			    console.log('Preview URL: %s', nodemailer.getTestMessageUrl(info));
+			    
+			});
+			
+			
+		    });
 	    });
 
     }
