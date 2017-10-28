@@ -60,10 +60,10 @@ server.on('request', (request, response) => {
 	    }).on('end', () => {
 
 		    body = Buffer.concat(body).toString();
-		    const auth_token = JSON.parse(decodeURIComponent(body))["auth_token"];
+		    const id_token = JSON.parse(decodeURIComponent(body))["id_token"];
 		    const device_token  = JSON.parse(decodeURIComponent(body))["device_token"];
 		    
-		    admin.auth().verifyIdToken(auth_token)
+		    admin.auth().verifyIdToken(id_token)
 		.then(function(decodedToken) {
 		        var username = decodedToken.uid;
 		        
@@ -113,7 +113,7 @@ server.on('request', (request, response) => {
 		    
 		    var connection = mysql.createConnection({
 			host     : 'ecommunicate-production.cphov5mfizlt.us-west-2.rds.amazonaws.com',
-			user     : 'android_chat',
+			user     : 'android_email',
 			password : mysql_db_password,
 			database : 'ecommunicate',
 			port : '3306',
@@ -121,6 +121,8 @@ server.on('request', (request, response) => {
 		    
 		    connection.connect();
 		    
+		console.log('select * from user_info where username = "'+username+'";');
+
 		    connection.query('select * from user_info where username = "'+username+'";',function (error, results, fields) {
 			
 			const hash = crypto.createHash('sha256')
@@ -155,16 +157,17 @@ server.on('request', (request, response) => {
     }
 
 
-    if (request.method === 'POST' && request.url === '/receivedemails/') {
+    if (request.method === 'POST' && request.url === '/emails/') {
 	
 	let body = [];
 	request.on('data', (chunk) => {
 	        body.push(chunk);
 	    }).on('end', () => {
 		body = Buffer.concat(body).toString();
-		const auth_token = JSON.parse(decodeURIComponent(body))["auth_token"];
-		
-		admin.auth().verifyIdToken(auth_token)
+		const id_token = JSON.parse(decodeURIComponent(body))["id_token"];
+		const sent = JSON.parse(decodeURIComponent(body))["sent"];
+
+		admin.auth().verifyIdToken(id_token)
 		    .then(function(decodedToken) {
 		        var username = decodedToken.uid;
 			
@@ -178,18 +181,26 @@ server.on('request', (request, response) => {
 			
 			connection.connect();
 			
-			received_email_ids = [];
+			email_ids = [];
 			is_read_booleans = [];
 			
-			connection.query('select * from received_emails where username = "'+username+'" order by received_time desc;',function (error, results, fields) { 
+			sent_or_received = "received"
+
+			if (sent)
+			    sent_or_received = "sent"
+
+			connection.query('select * from '+sent_or_received+'_emails where username = "'+username+'" order by '+sent_or_received+'_time desc;',function (error, results, fields) { 
 			    
 			    for (let i = 0, len = results.length; i < len; ++i) {
-				received_email_ids.push(results[i]['id']);
+				email_ids.push(results[i]['id']);
 
-				if (results[i]['is_read'] == 0)
-				    is_read_booleans.push('false');
-				else
-				    is_read_booleans.push('true');
+				if (!sent){
+				    if (results[i]['is_read'] == 0)
+					is_read_booleans.push('false');
+				    else
+					is_read_booleans.push('true');
+				}
+
 
 			    }
 			    
@@ -202,7 +213,7 @@ server.on('request', (request, response) => {
 
 			    var items_processed = 0;
 
-			    if (received_email_ids.length === 0 ) {
+			    if (email_ids.length === 0 ) {
 				
 				response.write(JSON.stringify(json_array));
 				
@@ -213,13 +224,31 @@ server.on('request', (request, response) => {
 			    else {
 			    
 
-				for (let i = 0, len = received_email_ids.length; i < len; ++i){
+				json_array = [];
+
+				for (let i = 0, len = email_ids.length; i < len; ++i){
+
+				    json_array.push({});
+				}
+
+
+				for (let i = 0, len = email_ids.length; i < len; ++i){
+				
+
+				    var maildirname = "ecommunicate.ch"
 				    
-				    let source = fs.createReadStream('/efsemail/mail/vhosts/ecommunicate.ch/'+username+'/new/'+received_email_ids[i]);
+				    if (sent)
+					maildirname = "ecommunicate.ch-sent"
 				    
+				    let source = fs.createReadStream('/efsemail/mail/vhosts/'+maildirname+'/'+username+'/new/'+email_ids[i]);
+				    
+
 				    simpleParser(source, (err,mail) => {
 					
-					json_array.push({'subject' : mail.headers.get('subject'), 'from' : mail.headers.get('from')['value'][0]['address'], 'date' : mail.headers.get('date') , 'is_read' : is_read_booleans[i], 'id' : received_email_ids[i]})
+					if (sent)
+					    json_array[i] = {'subject' : mail.headers.get('subject'), 'to' : mail.headers.get('to')['value'][0]['address'], 'date' : mail.headers.get('date'),  'email_id' : email_ids[i]}
+					else
+					    json_array[i] = {'subject' : mail.headers.get('subject'), 'from' : mail.headers.get('from')['value'][0]['address'], 'date' : mail.headers.get('date') , 'is_read' : is_read_booleans[i], 'email_id' : email_ids[i]}
 					
 					items_processed++;
 					
@@ -230,19 +259,14 @@ server.on('request', (request, response) => {
 					    response.end();
 					    
 					}
-					
-					
-					//console.log(mail.text)
-					
+				    
 				    });
 				    
 				    
 				}
-
+				
+				
 			    }
-
-
-
 
 			});
 
@@ -259,10 +283,11 @@ server.on('request', (request, response) => {
 	        body.push(chunk);
 	    }).on('end', () => {
 		body = Buffer.concat(body).toString();
-		const auth_token = JSON.parse(decodeURIComponent(body))["auth_token"];
+		const id_token = JSON.parse(decodeURIComponent(body))["id_token"];
 		const email_id = JSON.parse(decodeURIComponent(body))["email_id"];
+		const sent = JSON.parse(decodeURIComponent(body))["sent"];
 		
-		admin.auth().verifyIdToken(auth_token)
+		admin.auth().verifyIdToken(id_token)
 		    .then(function(decodedToken) {
 		        var username = decodedToken.uid;
 			
@@ -275,11 +300,22 @@ server.on('request', (request, response) => {
 			});
 			
 			
-			let source = fs.createReadStream('/efsemail/mail/vhosts/ecommunicate.ch/'+username+'/new/'+email_id);
+			maildirname = "ecommunicate.ch"
+
+			if(sent)
+			    maildirname = "ecommunicate.ch-sent"
+
+			let source = fs.createReadStream('/efsemail/mail/vhosts/'+maildirname+'/'+username+'/new/'+email_id);
 				
+
+			if (!sent)
+		            connection.query('update received_emails set is_read=1 where id="'+email_id+'";',function (error, results, fields) { } );
+
+			connection.end();
+
 			simpleParser(source, (err,mail) => {
 			
-			    json_object = {'subject' : mail.headers.get('subject'), 'from' : mail.headers.get('from')['value'][0]['address'], 'date' : mail.headers.get('date'), 'body' : mail.text , 'cc' : '' }
+			    json_object = {'subject' : mail.headers.get('subject'), 'from' : mail.headers.get('from')['value'][0]['address'], 'date' : mail.headers.get('date'), 'body' : mail.text , 'cc' : '' , 'to' : mail.headers.get('to')['value'][0]['address']}
 				    
 			    response.write(JSON.stringify(json_object));
 			    
@@ -304,12 +340,12 @@ server.on('request', (request, response) => {
 	        body.push(chunk);
 	    }).on('end', () => {
 		body = Buffer.concat(body).toString();
-		const auth_token = JSON.parse(decodeURIComponent(body))["auth_token"];
+		const id_token = JSON.parse(decodeURIComponent(body))["id_token"];
 		const email_body = JSON.parse(decodeURIComponent(body))["body"];
 		const email_subject = JSON.parse(decodeURIComponent(body))["subject"];
 		const email_to = JSON.parse(decodeURIComponent(body))["to"];
 		
-		admin.auth().verifyIdToken(auth_token)
+		admin.auth().verifyIdToken(id_token)
 		    .then(function(decodedToken) {
 
 			var username = decodedToken.uid;
@@ -321,19 +357,14 @@ server.on('request', (request, response) => {
 			let transporter = nodemailer.createTransport({
 			    host: 'ecommunicate.ch',
 			    port: 587,
-			    secure: false, // true for 465, false for other ports                                                                                                          
+			    secure: false,
 			});
-			
-			// setup email data with unicode symbol                                                                                                                            
-			
 			let mailOptions = {
-			    from: username + "@ecommunicate.ch", // sender address                                                                                      
-			    to: email_to, // list of receivers                                                                                                              
-			    subject: email_subject, // Subject line                                                                                                                            
-			    text: email_body, // plain text body                                                                                                                       
+			    from: username + "@ecommunicate.ch",
+			    to: email_to, 
+			    subject: email_subject,
+			    text: email_body,
 			};
-			
-			// send mail with defined transport objec                                                                                                                          
 			transporter.sendMail(mailOptions, (error, info) => {
 			    
 			    if (error) {
@@ -344,6 +375,8 @@ server.on('request', (request, response) => {
 			    
 			    console.log('Preview URL: %s', nodemailer.getTestMessageUrl(info));
 			    
+			    response.end();
+
 			});
 			
 			
