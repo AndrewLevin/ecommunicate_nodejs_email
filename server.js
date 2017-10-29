@@ -69,7 +69,7 @@ server.on('request', (request, response) => {
 		        
 		        var connection = mysql.createConnection({
 			    host     : 'ecommunicate-production.cphov5mfizlt.us-west-2.rds.amazonaws.com',
-			    user     : 'android_chat',
+			    user     : 'android_email',
 			    password : mysql_db_password,
 			    database : 'ecommunicate',
 			    port : '3306',
