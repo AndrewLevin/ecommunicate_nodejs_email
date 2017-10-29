@@ -333,6 +333,60 @@ server.on('request', (request, response) => {
 
     }
 
+    if (request.method === 'POST' && request.url === '/reply/') {
+	
+	let body = [];
+	request.on('data', (chunk) => {
+	        body.push(chunk);
+	    }).on('end', () => {
+		body = Buffer.concat(body).toString();
+		const id_token = JSON.parse(decodeURIComponent(body))["id_token"];
+		const email_id = JSON.parse(decodeURIComponent(body))["email_id"];
+		const sent = JSON.parse(decodeURIComponent(body))["sent"];
+		
+		admin.auth().verifyIdToken(id_token)
+		    .then(function(decodedToken) {
+		        var username = decodedToken.uid;
+			
+			maildirname = "ecommunicate.ch"
+
+			if(sent)
+			    maildirname = "ecommunicate.ch-sent"
+
+			let source = fs.createReadStream('/efsemail/mail/vhosts/'+maildirname+'/'+username+'/new/'+email_id);
+
+			simpleParser(source, (err,mail) => {
+
+			    reply_body = "\nOn "+mail.headers.get('date') + ", " + mail.headers.get('from')['value'][0]['address'] + " wrote:\n"
+
+			    for (let i = 0, len = mail.text.split('\n').length; i < len; ++i) {
+				reply_body = reply_body + "> " + mail.text.split('\n')[i]+"\n"
+			    }
+
+
+			    json_object = {'subject' : "Re: " + mail.headers.get('subject'), 'date' : mail.headers.get('date'), 'body' : reply_body , 'cc' : '' , 'to' : mail.headers.get('from')['value'][0]['address']}
+
+			    if (sent)
+			    	json_object = {'subject' : "Re: " + mail.headers.get('subject'), 'date' : mail.headers.get('date'), 'body' : reply_body , 'cc' : '' , 'to' : mail.headers.get('to')['value'][0]['address']}
+
+				    
+			    response.write(JSON.stringify(json_object));
+			    
+			    response.end();
+
+
+			    //console.log(mail.text)
+			    
+			});
+
+			
+		    });
+
+	    });
+
+    }
+
+
     if (request.method === 'POST' && request.url === '/sendemail/') {
 	
 	let body = [];
