@@ -387,6 +387,69 @@ server.on('request', (request, response) => {
     }
 
 
+    if (request.method === 'POST' && request.url === '/new_email/'){
+	
+	let body = [];
+	request.on('data', (chunk) => {
+	        body.push(chunk);
+	    }).on('end', () => {
+
+		body = Buffer.concat(body).toString();
+		var username = JSON.parse(decodeURIComponent(body))["username"];
+		
+		var connection = mysql.createConnection({
+		    host     : 'ecommunicate-production.cphov5mfizlt.us-west-2.rds.amazonaws.com',
+		    user     : 'android_email',
+		    password : mysql_db_password,
+			database : 'ecommunicate',
+		    port : '3306',
+		});
+		
+		connection.connect();
+		
+		device_tokens = []
+
+		connection.query('select token from device_tokens_email where username = "'+username+'";',function (error, results, fields) { 
+		    
+		    for (let i = 0, len = results.length; i < len; ++i) {
+			
+			device_tokens.push(results[i]["token"]);
+			
+		    }
+		    
+		});
+		
+		connection.end( function(error) {
+		    
+		    for (let i = 0, len = device_tokens.length; i < len; ++i) {
+			
+			var token = device_tokens[i];
+			
+			var payload = {
+			    notification: {
+				title: "",
+				body: "",
+				collapse_key : 'ecommunicate email',
+				tag : 'ecommunicate email'
+				
+			    },
+			};
+			
+			admin.messaging().sendToDevice(token, payload)
+			    .then(function(response) {
+				console.log("Successfully sent message:", response);
+			    })
+			    .catch(function(error) {
+				console.log("Error sending message:", error);
+			    });
+		    }    
+		});
+	    });
+    }
+		 
+	
+	
+	
     if (request.method === 'POST' && request.url === '/sendemail/') {
 	
 	let body = [];
