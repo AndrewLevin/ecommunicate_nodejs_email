@@ -245,10 +245,13 @@ server.on('request', (request, response) => {
 
 				    simpleParser(source, (err,mail) => {
 					
+
 					if (sent)
 					    json_array[i] = {'subject' : mail.headers.get('subject'), 'to' : mail.headers.get('to')['value'][0]['address'], 'date' : mail.headers.get('date'),  'email_id' : email_ids[i]}
 					else
 					    json_array[i] = {'subject' : mail.headers.get('subject'), 'from' : mail.headers.get('from')['value'][0]['address'], 'date' : mail.headers.get('date') , 'is_read' : is_read_booleans[i], 'email_id' : email_ids[i]}
+
+
 					
 					items_processed++;
 					
@@ -315,8 +318,22 @@ server.on('request', (request, response) => {
 
 			simpleParser(source, (err,mail) => {
 			
-			    json_object = {'subject' : mail.headers.get('subject'), 'from' : mail.headers.get('from')['value'][0]['address'], 'date' : mail.headers.get('date'), 'body' : mail.text , 'cc' : '' , 'to' : mail.headers.get('to')['value'][0]['address']}
+			    json_object = {'subject' : mail.headers.get('subject'), 'from' : mail.headers.get('from')['value'][0]['address'], 'date' : mail.headers.get('date'), 'body' : mail.text , 'cc' : '' , 'to' : mail.headers.get('to')['value'][0]['address'], 'attachments' : []}
+			    
+			    if (mail.attachments) {
+                                mail.attachments.forEach(function(attachment) {
+//				    console.log(attachment.headers.get("content-description"));
+
+				    json_object['attachments'].push({'filename' : attachment.headers.get("content-description"), 'id' : attachment.headers.get("x-attachment-id")})
+
 				    
+				});
+				
+			    }
+			    
+
+
+		    
 			    response.write(JSON.stringify(json_object));
 			    
 			    response.end();
