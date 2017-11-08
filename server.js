@@ -52,6 +52,57 @@ server.on('request', (request, response) => {
     console.log(request.method);
     console.log(request.headers);
 
+    if (request.method === 'POST' && request.url === '/downloadattachment/'){
+
+	let body = [];
+	request.on('data', (chunk) => {
+	        body.push(chunk);
+	    }).on('end', () => {
+
+		body = Buffer.concat(body).toString();
+		const id_token = JSON.parse(decodeURIComponent(body))["id_token"];
+		const sent = JSON.parse(decodeURIComponent(body))["sent"];
+		const attachment_id = JSON.parse(decodeURIComponent(body))["attachment_id"];
+		const email_id = JSON.parse(decodeURIComponent(body))["email_id"];
+
+		
+		admin.auth().verifyIdToken(id_token)
+		    .then(function(decodedToken) {
+		        var username = decodedToken.uid;
+
+			maildirname = "ecommunicate.ch"
+
+			if(sent)
+			    maildirname = "ecommunicate.ch-sent"
+
+			let source = fs.createReadStream('/efsemail/mail/vhosts/'+maildirname+'/'+username+'/new/'+email_id);
+				
+			simpleParser(source, (err,mail) => {
+			
+			    if (mail.attachments) {
+                                mail.attachments.forEach(function(attachment) {
+
+				    if (attachment.headers.get("x-attachment-id") == attachment_id) {
+
+					response.write(attachment.content);
+
+					response.end();
+					
+				    }
+
+				});
+				
+			    }
+			});
+
+		    });
+	    });
+
+    }
+				   			    
+
+
+
     if (request.method === 'POST' && request.url === '/registerdevice/'){
 
 	let body = [];
@@ -64,7 +115,7 @@ server.on('request', (request, response) => {
 		    const device_token  = JSON.parse(decodeURIComponent(body))["device_token"];
 		    
 		    admin.auth().verifyIdToken(id_token)
-		.then(function(decodedToken) {
+		    .then(function(decodedToken) {
 		        var username = decodedToken.uid;
 		        
 		        var connection = mysql.createConnection({
