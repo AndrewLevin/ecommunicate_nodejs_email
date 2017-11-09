@@ -51,8 +51,10 @@ server.on('request', (request, response) => {
     console.log(request.url);
     console.log(request.method);
     console.log(request.headers);
+    console.log(request.url.split('?'))
 
-    if (request.method === 'POST' && request.url === '/downloadattachment/'){
+
+    if (request.method === 'GET' && request.url.split('?').length > 1 &&  request.url.split('?')[0] === '/downloadattachment/'){
 
 	let body = [];
 	request.on('data', (chunk) => {
@@ -60,15 +62,22 @@ server.on('request', (request, response) => {
 	    }).on('end', () => {
 
 		body = Buffer.concat(body).toString();
-		const id_token = JSON.parse(decodeURIComponent(body))["id_token"];
-		const sent = JSON.parse(decodeURIComponent(body))["sent"];
-		const attachment_id = JSON.parse(decodeURIComponent(body))["attachment_id"];
-		const email_id = JSON.parse(decodeURIComponent(body))["email_id"];
+		const id_token = request.headers["authorization"];
 
 		
 		admin.auth().verifyIdToken(id_token)
 		    .then(function(decodedToken) {
 		        var username = decodedToken.uid;
+			
+			var sent = request.url.split('?')[1].split('&&')[0].split('=')[1].split("%22")[1];
+			var attachment_id = request.url.split('?')[1].split('&&')[2].split('=')[1].split("%22")[1];
+			var email_id = request.url.split('?')[1].split('&&')[1].split('=')[1].split("%22")[1];
+
+			if (sent == "false")
+			    sent = false;
+			else
+			    sent = true;
+
 
 			maildirname = "ecommunicate.ch"
 
