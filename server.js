@@ -538,6 +538,7 @@ server.on('request', (request, response) => {
 		const email_body = JSON.parse(decodeURIComponent(body))["body"];
 		const email_subject = JSON.parse(decodeURIComponent(body))["subject"];
 		const email_to = JSON.parse(decodeURIComponent(body))["to"];
+		const email_cc = JSON.parse(decodeURIComponent(body))["cc"];
 		
 		admin.auth().verifyIdToken(id_token)
 		    .then(function(decodedToken) {
@@ -547,6 +548,7 @@ server.on('request', (request, response) => {
 			console.log(email_body);
 			console.log(email_subject);
 			console.log(email_to);
+			console.log(email_cc);
 
 			let transporter = nodemailer.createTransport({
 			    host: 'ecommunicate.ch',
@@ -556,6 +558,7 @@ server.on('request', (request, response) => {
 			let mailOptions = {
 			    from: username + "@ecommunicate.ch",
 			    to: email_to, 
+			    cc: email_cc, 
 			    subject: email_subject,
 			    text: email_body,
 			};
