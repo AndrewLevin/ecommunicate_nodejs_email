@@ -51,8 +51,6 @@ server.on('request', (request, response) => {
     console.log(request.url);
     console.log(request.method);
     console.log(request.headers);
-    console.log(request.url.split('?'))
-
 
     if (request.method === 'GET' && request.url.split('?').length > 1 &&  request.url.split('?')[0] === '/downloadattachment/'){
 
@@ -181,42 +179,61 @@ server.on('request', (request, response) => {
 		    
 		    connection.connect();
 		    
-		console.log('select * from user_info where username = "'+username+'";');
-
 		    connection.query('select * from user_info where username = "'+username+'";',function (error, results, fields) {
 			
 			const hash = crypto.createHash('sha256')
 			    .update(JSON.parse(decodeURIComponent(body))["password"])
 			    .digest('hex');
 			
-			if(results.length == 1 &&  results[0]['hashed_password'] === hash){
+			if(Array.isArray(results) && results.length == 1 &&  results[0]['hashed_password'] === hash){
+
 			        admin.auth().createCustomToken(username)
+
 			    .then(function(customToken) {
-				    response.write(customToken);
+
+				console.log("Successful login for username "+ username+".");
+				
+				json_object = {"success" : true, "custom_token" : customToken};
+				
+				response.write(JSON.stringify(json_object));
+				
+				response.end();
+				
+			    })
+				.catch(function(error) {
+				    
+				    console.log("Unsuccessful login for username "+ username+".");
+				    
+				    console.log("Error creating custom token:", error);
+				    
+				    json_object = {"success" : false, "custom_token" : ""};
+				    
+				    response.write(JSON.stringify(json_object));
 
 				    response.end();
-				})
-			    .catch(function(error) {
-				    response.write("Unsuccessful login.");
-				    response.end();
-				    console.log("Error creating custom token:", error);
+
 				});
 			        
 			    } else {
-				    response.write("Unsuccesful login.");
-				    response.end();
-				    console.log("Unsuccessful login for username "+ username+".");
-				    
-				}
+
+				json_object = {"success" : false, "custom_token" : ""};
+				
+				response.write(JSON.stringify(json_object));
+				
+				response.end();
+				
+				console.log("Unsuccessful login for username "+ username+".");
+				
+			    }
 			
-			    });
+		    });
+		
+		connection.end();
 		    
-		    connection.end();
-		    
-		});
+	    });
     }
-
-
+    
+    
     if (request.method === 'POST' && request.url === '/emails/') {
 	
 	let body = [];
@@ -282,7 +299,7 @@ server.on('request', (request, response) => {
 			    }
 
 			    else {
-			    
+
 
 				json_array = [];
 
