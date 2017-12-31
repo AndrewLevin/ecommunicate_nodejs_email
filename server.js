@@ -323,10 +323,21 @@ server.on('request', (request, response) => {
 				    simpleParser(source, (err,mail) => {
 					
 
+					var body = "";
+
+					var subject = "";
+
+					if (mail.text != undefined)
+					    body = mail.text
+					
+					if (mail.headers.get('subject') != undefined)
+					    subject = mail.headers.get('subject')
+
+
 					if (sent)
-					    json_array[i] = {'subject' : mail.headers.get('subject'), 'to' : mail.headers.get('to')['value'][0]['address'], 'date' : mail.headers.get('date'),  'email_id' : email_ids[i]}
+					    json_array[i] = {'subject' : subject, 'to' : mail.headers.get('to')['value'][0]['address'], 'date' : mail.headers.get('date'),  'email_id' : email_ids[i]}
 					else
-					    json_array[i] = {'subject' : mail.headers.get('subject'), 'from' : mail.headers.get('from')['value'][0]['address'], 'date' : mail.headers.get('date') , 'is_read' : is_read_booleans[i], 'email_id' : email_ids[i]}
+					    json_array[i] = {'subject' : subject, 'from' : mail.headers.get('from')['value'][0]['address'], 'date' : mail.headers.get('date') , 'is_read' : is_read_booleans[i], 'email_id' : email_ids[i]}
 
 
 					
@@ -395,7 +406,16 @@ server.on('request', (request, response) => {
 
 			simpleParser(source, (err,mail) => {
 			
-			    json_object = {'subject' : mail.headers.get('subject'), 'from' : mail.headers.get('from')['value'][0]['address'], 'date' : mail.headers.get('date'), 'body' : mail.text , 'cc' : '' , 'to' : mail.headers.get('to')['value'][0]['address'], 'attachments' : []}
+			    var body = "";
+			    var subject = "";
+			    
+			    if (mail.text != undefined)
+				body = mail.text
+
+			    if (mail.headers.get('subject') != undefined)
+				subject = mail.headers.get('subject')
+
+			    json_object = {'subject' : subject, 'from' : mail.headers.get('from')['value'][0]['address'], 'date' : mail.headers.get('date'), 'body' : body , 'cc' : '' , 'to' : mail.headers.get('to')['value'][0]['address'], 'attachments' : []}
 			    
 			    if (mail.attachments) {
                                 mail.attachments.forEach(function(attachment) {
@@ -409,7 +429,7 @@ server.on('request', (request, response) => {
 			    }
 			    
 
-
+			    console.log(json_object);
 		    
 			    response.write(JSON.stringify(json_object));
 			    
